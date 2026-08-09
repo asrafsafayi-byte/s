@@ -1,7 +1,10 @@
 import os
 import subprocess
+import logging
 from typing import List, Dict, Optional
 from jinja2 import Template
+
+logger = logging.getLogger(__name__)
 
 
 class PDFReportGenerator:
@@ -12,6 +15,7 @@ class PDFReportGenerator:
         candidates = [
             os.path.expanduser("~/.local/share/fonts/Vazirmatn-Regular.ttf"),
             os.path.expanduser("~/ai_agent/fonts/Vazirmatn-Regular.ttf"),
+            "/usr/share/fonts/truetype/vazir/Vazirmatn-Regular.ttf",
         ]
         for c in candidates:
             if os.path.exists(c):
@@ -63,19 +67,24 @@ class PDFReportGenerator:
                     check=True,
                     capture_output=True,
                 )
+                logger.info(f"PDF با موفقیت ساخته شد: {pdf_path}")
                 return pdf_path, html_path
             except Exception as e:
-                print(f"[PDF] wkhtmltopdf failed: {e}")
+                logger.error(f"خطا در ساخت PDF با wkhtmltopdf: {e}")
 
         # ── روش ۲: WeasyPrint (احتمالاً فارسی را خراب کند) ──
         try:
             import weasyprint
             weasyprint.HTML(string=html).write_pdf(pdf_path)
+            logger.info(f"PDF با WeasyPrint ساخته شد: {pdf_path}")
             return pdf_path, html_path
+        except ImportError:
+            logger.warning("WeasyPrint نصب نیست")
         except Exception as e:
-            print(f"[PDF] WeasyPrint failed: {e}")
+            logger.error(f"خطا در ساخت PDF با WeasyPrint: {e}")
 
         # ── روش ۳: فقط HTML ──
+        logger.info("فقط فایل HTML تولید شد")
         return None, html_path
 
     def _render_html(self, metadata, summary_text, plot_paths, energy_stats=None):
