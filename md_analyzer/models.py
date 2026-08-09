@@ -64,6 +64,7 @@ class ReportArtifact:
     plot_paths: List[str] = field(default_factory=list)
     summary_text: str = ""
     error_log: List[str] = field(default_factory=list)
+    raw_metadata: Dict[str, str] = field(default_factory=dict)
 
     def to_agent_json(self) -> str:
         import json

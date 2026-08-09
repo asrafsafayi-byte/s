@@ -1,14 +1,27 @@
 import os
 import re
+import logging
 import pandas as pd
 from typing import List, Optional
 from md_analyzer.models import EnergyData
 
+logger = logging.getLogger(__name__)
+
 
 class EnergyFileParser:
     def parse(self, filepath: str) -> Optional[EnergyData]:
-        if not os.path.exists(filepath):
+        # اعتبارسنجی ورودی
+        if not filepath or not isinstance(filepath, str):
+            logger.error("مسیر فایل نامعتبر است")
             return None
+        
+        if not os.path.exists(filepath):
+            logger.warning(f"فایل انرژی یافت نشد: {filepath}")
+            return None
+
+        # بررسی پسوند فایل
+        if not filepath.lower().endswith('.ene'):
+            logger.warning(f"فرمت فایل ممکن است اشتباه باشد: {filepath}")
 
         headers: List[str] = []
         try:
@@ -20,12 +33,14 @@ class EnergyFileParser:
                             headers = parts
                     else:
                         break
-        except Exception:
+        except Exception as e:
+            logger.error(f"خطا در خواندن فایل انرژی: {e}")
             return None
 
         try:
             df = pd.read_csv(filepath, sep=r'\s+', comment='#', header=None, engine='python')
-        except Exception:
+        except Exception as e:
+            logger.error(f"خطا در پارس کردن داده‌های انرژی: {e}")
             return None
 
         # Assign columns
@@ -45,7 +60,7 @@ class EnergyFileParser:
         available = [c for c in df.columns if str(c).lower() not in ("time", "frame")]
 
         total_ns = None
-        if time_col == "Time" and not df[time_col].isnull().all():
+        if time_col == "Time" and not df[time_col].isnull().all() and len(df) > 0:
             total_ns = (df[time_col].iloc[-1] - df[time_col].iloc[0]) / 1000.0
 
         return EnergyData(

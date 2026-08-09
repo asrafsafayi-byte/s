@@ -1,7 +1,10 @@
 import os
+import logging
 from typing import List, Optional
 import plotly.graph_objects as go
 from md_analyzer.models import EnergyData
+
+logger = logging.getLogger(__name__)
 
 
 class PlotlyPlotter:
@@ -18,6 +21,10 @@ class PlotlyPlotter:
         return None
 
     def generate_html(self, data: EnergyData, metrics: List[str], filename: str = "interactive_chart.html") -> Optional[str]:
+        if data.df is None or data.df.empty:
+            logger.warning("داده‌ای برای رسم نمودار تعاملی موجود نیست")
+            return None
+            
         df = data.df.dropna(how='all')
         time = df[data.time_column] / 1000.0 if data.time_column == "Time" else df.index
 
@@ -25,7 +32,7 @@ class PlotlyPlotter:
         count = 0
         for metric in metrics:
             col = self._match_column(metric, data.available_metrics)
-            if not col:
+            if not col or col not in df.columns:
                 continue
             fig.add_trace(go.Scatter(
                 x=time, y=df[col], mode='lines', name=col,
@@ -35,7 +42,8 @@ class PlotlyPlotter:
 
         if count == 0:
             for col in data.available_metrics[:3]:
-                fig.add_trace(go.Scatter(x=time, y=df[col], mode='lines', name=col))
+                if col in df.columns:
+                    fig.add_trace(go.Scatter(x=time, y=df[col], mode='lines', name=col))
 
         fig.update_layout(
             title="Interactive MD Energy Analysis",

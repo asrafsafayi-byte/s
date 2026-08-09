@@ -1,11 +1,13 @@
 import os
 from typing import List, Optional
+import logging
 import matplotlib
 matplotlib.use('Agg')  # سرور بدون GUI
 import matplotlib.pyplot as plt
 import seaborn as sns
 from md_analyzer.models import EnergyData
 
+logger = logging.getLogger(__name__)
 sns.set_theme(style="whitegrid")
 
 
@@ -35,6 +37,10 @@ class MatplotlibPlotter:
         return None
 
     def plot_combined(self, data: EnergyData, metrics: List[str]) -> Optional[str]:
+        if data.df is None or data.df.empty:
+            logger.warning("داده‌ای برای رسم نمودار موجود نیست")
+            return None
+            
         df = data.df.dropna(how='all')
         time = df[data.time_column] / 1000.0 if data.time_column == "Time" else df.index
 
@@ -44,7 +50,7 @@ class MatplotlibPlotter:
 
         for idx, metric in enumerate(metrics):
             col = self._match_column(metric, data.available_metrics)
-            if not col:
+            if not col or col not in df.columns:
                 continue
             c = colors[idx % len(colors)]
             ax.plot(time, df[col], color=c, alpha=0.3, linewidth=0.8)
@@ -69,12 +75,16 @@ class MatplotlibPlotter:
 
     def plot_individual(self, data: EnergyData, metrics: List[str]) -> List[str]:
         paths = []
+        if data.df is None or data.df.empty:
+            logger.warning("داده‌ای برای رسم نمودار موجود نیست")
+            return paths
+            
         df = data.df.dropna(how='all')
         time = df[data.time_column] / 1000.0 if data.time_column == "Time" else df.index
 
         for metric in metrics:
             col = self._match_column(metric, data.available_metrics)
-            if not col:
+            if not col or col not in df.columns:
                 continue
 
             fig, ax = plt.subplots(figsize=(8.5, 4.2), dpi=self.dpi)

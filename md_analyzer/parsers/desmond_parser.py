@@ -1,7 +1,10 @@
 import re
 import os
+import logging
 from typing import Optional
 from md_analyzer.models import SimulationConfig
+
+logger = logging.getLogger(__name__)
 
 
 class DesmondConfigParser:
@@ -9,13 +12,23 @@ class DesmondConfigParser:
 
     def parse(self, filepath: str) -> SimulationConfig:
         cfg = SimulationConfig()
+        
+        # اعتبارسنجی ورودی
+        if not filepath or not isinstance(filepath, str):
+            logger.error("مسیر فایل نامعتبر است")
+            cfg.raw_metadata["خطا"] = "مسیر فایل نامعتبر است"
+            return cfg
+        
         if not os.path.exists(filepath):
+            logger.warning(f"فایل یافت نشد: {filepath}")
+            cfg.raw_metadata["خطا"] = f"فایل یافت نشد: {filepath}"
             return cfg
 
         try:
             with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
         except Exception as e:
+            logger.error(f"خطا در خواندن فایل: {e}")
             cfg.raw_metadata["خطای خواندن فایل"] = str(e)
             return cfg
 
@@ -49,9 +62,16 @@ class DesmondConfigParser:
         if m := re.search(r'time\s*=\s*"([\d.]+)"', content, re.I):
             cfg.simulation_time_ns = float(m.group(1)) / 1000.0
 
-        # box dimensions (3x3 matrix flattened)
-        box_pat = r'box\s*=\s*\[\s*"([\d.]+)"\s*"[\d.]+"\s*"[\d.]+"\s*"[\d.]+"\s*"([\d.]+)"\s*"[\d.]+"\s*"[\d.]+"\s*"[\d.]+"\s*"([\d.]+)"'
+        # box dimensions (3x3 matrix flattened) - الگوی انعطاف‌پذیرتر
+        box_pat = r'box\s*=\s*\[\s*"([\d.eE+-]+)"\s*"[\d.eE+-]+"\s*"[\d.eE+-]+"\s*"[\d.eE+-]+"\s*"([\d.eE+-]+)"\s*"[\d.eE+-]+"\s*"[\d.eE+-]+"\s*"[\d.eE+-]+"\s*"([\d.eE+-]+)"'
         if m := re.search(box_pat, content, re.I):
-            cfg.box_dimensions_angstrom = (m.group(1), m.group(2), m.group(3))
+            try:
+                cfg.box_dimensions_angstrom = (
+                    float(m.group(1)), 
+                    float(m.group(2)), 
+                    float(m.group(3))
+                )
+            except ValueError:
+                logger.warning("خطا در پارس کردن ابعاد باکس")
 
         return cfg
